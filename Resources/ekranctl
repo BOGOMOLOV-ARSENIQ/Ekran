@@ -1,0 +1,19 @@
+#!/bin/sh
+# Command line control for a running Ekran.
+#   ekranctl help
+#   ekranctl brightness display=main value=70
+#   ekranctl scale display=external width=1920
+# Install: ln -s /Applications/Ekran.app/Contents/Resources/ekranctl /usr/local/bin/ekranctl
+
+self="$0"
+while [ -L "$self" ]; do
+    target="$(readlink "$self")"
+    case "$target" in
+        /*) self="$target" ;;
+        *) self="$(dirname "$self")/$target" ;;
+    esac
+done
+
+binary="$(cd "$(dirname "$self")/.." 2>/dev/null && pwd)/MacOS/Ekran"
+[ -x "$binary" ] || binary="/Applications/Ekran.app/Contents/MacOS/Ekran"
+exec "$binary" ctl "$@"

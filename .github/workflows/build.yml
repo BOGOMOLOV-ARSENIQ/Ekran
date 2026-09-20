@@ -1,0 +1,27 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcrun --show-sdk-version
+
+      - name: Build universal app
+        run: ./build.sh --universal
+
+      - name: Verify bundle and its helper
+        run: |
+          codesign --verify --strict --verbose=1 build/Ekran.app
+          codesign --verify --strict --verbose=1 "build/Ekran.app/Contents/Helpers/Ekran Keys.app"
+          lipo -info build/Ekran.app/Contents/MacOS/Ekran

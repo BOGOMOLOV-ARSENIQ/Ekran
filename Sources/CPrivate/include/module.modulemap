@@ -1,0 +1,4 @@
+module CPrivate {
+    header "CPrivate.h"
+    export *
+}
