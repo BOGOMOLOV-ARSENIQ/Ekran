@@ -59,6 +59,8 @@ struct DisplaySettings: Codable, Equatable {
     var adjustments = ImageAdjustments()
     var xdrEnabled = false
     var xdrBoost = 1.5
+    /// Redraw on every vsync so video stays smooth without moving the cursor (see RefreshKeeper).
+    var keepFullRefreshRate = false
     // Misc
     var favoriteModes: [ModeSpec] = []
     var keepDisconnected = false
@@ -195,6 +197,7 @@ extension DisplaySettings {
         adjustments = c.value(.adjustments, d.adjustments)
         xdrEnabled = c.value(.xdrEnabled, d.xdrEnabled)
         xdrBoost = c.value(.xdrBoost, d.xdrBoost)
+        keepFullRefreshRate = c.value(.keepFullRefreshRate, d.keepFullRefreshRate)
         favoriteModes = c.value(.favoriteModes, d.favoriteModes)
         keepDisconnected = c.value(.keepDisconnected, d.keepDisconnected)
         onConnectScript = c.value(.onConnectScript, d.onConnectScript)

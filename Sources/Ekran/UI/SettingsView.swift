@@ -553,6 +553,7 @@ private struct AboutView: View {
                     ScalingController.shared.reconcile()
                     GammaController.shared.reloadAll()
                     XDRController.shared.sync()
+                    RefreshKeeper.shared.sync()
                     HotkeyCenter.shared.reload()
                     MediaKeyTap.shared.stop()
                     HTTPServer.shared.reload()
