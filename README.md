@@ -30,6 +30,7 @@ A native macOS menu bar app for managing displays: flexible HiDPI scaling, DDC/C
 **Displays and arrangement**
 - Disconnect and reconnect a display in software, without unplugging the cable, plus a "keep disconnected" option.
 - Protection of arrangement and resolutions against macOS resets, a visual arrangement editor, "make main".
+- "Keep full refresh rate" (per display, off by default): for video that stutters on an external monitor until the cursor moves. A 1-point invisible window is redrawn on every vsync so the compositor keeps updating at the display's full rate.
 - Picture in picture: stream a display (a virtual one, for example) or a single window into a floating window.
 - Display information with EDID decoding (HDR, YCbCr, modes) and export to `.bin`.
 

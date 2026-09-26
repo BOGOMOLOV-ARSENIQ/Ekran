@@ -51,6 +51,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         VirtualScreenController.shared.stopAll()
         DisplayPowerController.shared.reconnectAll()
         GammaController.shared.resetAll()
+        RefreshKeeper.shared.stopAll()
         MediaKeyTap.shared.stop()
     }
 
@@ -74,6 +75,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         VirtualScreenController.shared.applyPendingModes()
         GammaController.shared.reloadAll()
         XDRController.shared.sync()
+        RefreshKeeper.shared.sync()
         BrightnessController.shared.updateSync()
         LayoutProtection.shared.scheduleCheck()
         if SettingsStore.shared.value.mediaKeysEnabled { MediaKeyTap.shared.refreshSnapshot() }

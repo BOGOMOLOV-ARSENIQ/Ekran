@@ -367,6 +367,14 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                 }
             }
 
+            if RefreshKeeper.shared.isSupported {
+                submenu.addItem(.separator())
+                submenu.add("Держать полную частоту", symbol: "speedometer", checked: settings.keepFullRefreshRate) {
+                    RefreshKeeper.shared.setEnabled(!settings.keepFullRefreshRate, for: display)
+                }
+                submenu.addNote("Если видео идёт рывками, пока не двигаешь мышь")
+            }
+
             submenu.addItem(.separator())
             submenu.add("Картинка в картинке", symbol: "pip") {
                 let id = ScalingController.shared.backendID(for: display) ?? display.id
