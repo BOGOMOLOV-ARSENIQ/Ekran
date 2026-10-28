@@ -68,9 +68,11 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func displaysChanged(_ changes: DisplayChanges) {
         let manager = DisplayManager.shared
-        if changes.isInitial || !changes.added.isEmpty {
-            attachDDC(to: manager.physical.filter { $0.ddc == nil })
+        let needsDDC = manager.physical.filter { display in
+            guard let ddc = display.ddc else { return changes.isInitial || !changes.added.isEmpty }
+            return !ddc.isAttached
         }
+        if !needsDDC.isEmpty { attachDDC(to: needsDDC) }
         ScalingController.shared.reconcile()
         VirtualScreenController.shared.applyPendingModes()
         GammaController.shared.reloadAll()

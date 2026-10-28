@@ -31,17 +31,26 @@ final class DDCChannel {
     }
 
     private let transport: Transport
+    /// The registry entry behind the transport. The kernel replaces it when the monitor reconnects or wakes,
+    /// even if CoreGraphics keeps the display ID, and writes to the old one silently go nowhere.
+    private let entry: io_service_t
     private let queue: DispatchQueue
     private let writes = OSAllocatedUnfairLock(initialState: WriteQueue())
 
-    private init(transport: Transport, label: String) {
+    private init(transport: Transport, entry: io_service_t, label: String) {
         self.transport = transport
+        self.entry = entry
+        IOObjectRetain(entry)
         queue = DispatchQueue(label: "app.ekran.ddc.\(label)", qos: .userInitiated)
     }
 
     deinit {
+        IOObjectRelease(entry)
         if case let .framebuffer(service) = transport { IOObjectRelease(service) }
     }
+
+    /// False once the kernel has terminated the registry entry; the channel then has to be discovered again.
+    var isAttached: Bool { IORegistryEntryInPlane(entry, kIOServicePlane) != 0 }
 
     // MARK: Discovery
 
@@ -53,10 +62,11 @@ final class DDCChannel {
         var result: [CGDirectDisplayID: DDCChannel] = [:]
         #if arch(arm64)
         let services = appleSiliconServices()
+        defer { services.values.forEach { IOObjectRelease($0.entry) } }
         var unmatched = candidates
         for display in candidates {
             if let location = display.info["IODisplayLocation"] as? String, let service = services[location] {
-                result[display.id] = DDCChannel(transport: .avService(service), label: "\(display.id)")
+                result[display.id] = DDCChannel(transport: .avService(service.service), entry: service.entry, label: "\(display.id)")
                 unmatched.removeAll { $0 === display }
             }
         }
@@ -64,13 +74,13 @@ final class DDCChannel {
         let used = Set(candidates.compactMap { $0.info["IODisplayLocation"] as? String })
         let spare = services.filter { !used.contains($0.key) }
         if unmatched.count == 1, spare.count == 1, let display = unmatched.first, let service = spare.first?.value {
-            result[display.id] = DDCChannel(transport: .avService(service), label: "\(display.id)")
+            result[display.id] = DDCChannel(transport: .avService(service.service), entry: service.entry, label: "\(display.id)")
         }
         #else
         for display in candidates {
             let framebuffer = EKIntelFramebufferForDisplay(display.id)
             if framebuffer != IO_OBJECT_NULL {
-                result[display.id] = DDCChannel(transport: .framebuffer(framebuffer), label: "\(display.id)")
+                result[display.id] = DDCChannel(transport: .framebuffer(framebuffer), entry: framebuffer, label: "\(display.id)")
             }
         }
         #endif
@@ -78,8 +88,8 @@ final class DDCChannel {
     }
 
     #if arch(arm64)
-    private static func appleSiliconServices() -> [String: CFTypeRef] {
-        var services: [String: CFTypeRef] = [:]
+    private static func appleSiliconServices() -> [String: (service: CFTypeRef, entry: io_service_t)] {
+        var services: [String: (service: CFTypeRef, entry: io_service_t)] = [:]
         var iterator = io_iterator_t()
         let root = IORegistryGetRootEntry(kIOMainPortDefault)
         defer { IOObjectRelease(root) }
@@ -103,7 +113,8 @@ final class DDCChannel {
                 let location = IORegistryEntryCreateCFProperty(entry, "Location" as CFString, kCFAllocatorDefault, 0)?
                     .takeRetainedValue() as? String
                 if location == "External", let framebufferPath, let service = EKAVServiceCreate(entry) {
-                    services[framebufferPath] = service
+                    IOObjectRetain(entry)
+                    if let replaced = services.updateValue((service, entry), forKey: framebufferPath) { IOObjectRelease(replaced.entry) }
                 }
             default:
                 break
@@ -215,7 +226,10 @@ final class DDCChannel {
     }
 
     private static func parseReply(_ reply: [UInt8], code: UInt8, verifyChecksum: Bool) -> (current: Int, maximum: Int)? {
-        if verifyChecksum, reply[0 ..< 10].reduce(UInt8(0x50), ^) != reply[10] { return nil }
+        // Some monitors (LG over USB-C) come back with the length byte replaced by the 0x51 offset, while the
+        // checksum still covers the real one: a VCP reply always carries 8 bytes, so its length byte is 0x88.
+        if verifyChecksum, reply[0 ..< 10].reduce(UInt8(0x50), ^) != reply[10],
+           reply[2 ..< 10].reduce(UInt8(0x50 ^ 0x6E ^ 0x88), ^) != reply[10] { return nil }
         guard reply[2] == 0x02, reply[3] == 0x00, reply[4] == code else { return nil }
         let maximum = Int(reply[6]) << 8 | Int(reply[7])
         let current = Int(reply[8]) << 8 | Int(reply[9])
